@@ -86,7 +86,7 @@ export const HomeSeries = () => {
           </SimpleGrid>
 
           <IonInfiniteScroll
-            onIonInfinite={loadMore as never}
+            onIonInfinite={loadMore}
             threshold="100px"
             disabled={!hasMore}
           >

@@ -7,21 +7,29 @@ import {
   Loader,
   Alert,
   Title,
+  ScrollArea,
+  Box,
+  AspectRatio,
+  Button,
+  Group,
+  Badge,
+  Divider,
 } from "@mantine/core";
 import {
   IonButton,
   IonContent,
   IonHeader,
+  IonIcon,
   IonModal,
-  IonTitle,
   IonToolbar,
 } from "@ionic/react";
 import { useAtom } from "jotai";
 import { SerieIdAtom } from "../../stores/serie";
 import { useEffect, useState } from "react";
-import { GetSeries } from "../../api/series";
 import { Serie } from "../../types/serie";
 import { CONFIG } from "../../config/config";
+import { GetSeriesDetail } from "../../api/series";
+import { close } from "ionicons/icons";
 
 export const SerieModal = () => {
   const [seriesId, setSeriesId] = useAtom(SerieIdAtom);
@@ -32,26 +40,72 @@ export const SerieModal = () => {
   const isOpen = !!seriesId;
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await GetSeries();
-        const serie = data.items.find((e: Serie) => e.id === seriesId);
-        setSerie(serie);
-      } catch (err) {
-        console.error("Error fetching series:", err);
-        setError("Falló la conexión con el servidor. Revisa el endpoint POST.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+    if (seriesId) {
+      setIsLoading(true);
+      setError(null);
+      GetSeriesDetail(seriesId)
+        .then((data) => {
+          setSerie(data.item);
+        })
+        .catch((err) => {
+          console.error("Error fetching detail:", err);
+          setError("No se pudo cargar el detalle de la serie.");
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
   }, [seriesId]);
 
   const handleClose = () => {
     setSeriesId(null);
     setSerie(null);
   };
+
+  if (isLoading && !serie) {
+    return (
+      <IonModal
+        isOpen={isOpen}
+        onDidDismiss={handleClose}
+        initialBreakpoint={0.9}
+        breakpoints={[0, 0.9, 1]}
+        backdropBreakpoint={0.4}
+        handle={false}
+      >
+        <Center h="100%">
+          <Loader size="lg" color="red" />
+        </Center>
+      </IonModal>
+    );
+  }
+
+  if (error || !serie) {
+    return (
+      <IonModal
+        isOpen={isOpen}
+        onDidDismiss={handleClose}
+        initialBreakpoint={0.5}
+        breakpoints={[0, 0.5, 0.8, 1]}
+        backdropBreakpoint={0.4}
+      >
+        <IonContent className="ion-padding">
+          <Alert color="red" title="Error de Carga" variant="filled">
+            {error || "El detalle de la serie no está disponible."}
+          </Alert>
+          <Center mt="md">
+            <Button
+              onClick={handleClose}
+              variant="outline"
+              color="red"
+              leftSection={<IonIcon icon={close} />}
+            >
+              Cerrar
+            </Button>
+          </Center>
+        </IonContent>
+      </IonModal>
+    );
+  }
 
   return (
     <IonModal
@@ -62,91 +116,121 @@ export const SerieModal = () => {
       backdropBreakpoint={0.4}
       handle={false}
     >
-      <IonHeader>
+      <IonHeader className="ion-no-border">
         <IonToolbar>
-          <IonTitle>{serie?.name || "Detalle de Serie"}</IonTitle>
-          <IonButton slot="end" onClick={handleClose} fill="clear" color="red">
-            Cerrar
+          <IonButton slot="end" onClick={handleClose} fill="clear" color="gray">
+            <IonIcon icon={close} />
           </IonButton>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent className="ion-padding">
-        <Container size="sm">
-          {isLoading && (
-            <Center my="xl">
-              <Loader size="lg" color="red" />
-            </Center>
-          )}
+      <ScrollArea h="100%">
+        <Box pos="relative">
+          <AspectRatio ratio={16 / 9} maw="100%" mx="auto">
+            <Image
+              src={`${CONFIG.IMAGE_BASE_URL}${
+                serie.imagelandscape || serie.image
+              }`}
+              alt={serie.name}
+              fit="cover"
+              fallbackSrc="https://placehold.co/1600x900/1a1b1e/FFF?text=Akaya+Media"
+            />
+          </AspectRatio>
 
-          {error && (
-            <Alert color="red" title="Error">
-              {error}
-            </Alert>
-          )}
-          {serie && !isLoading && (
-            <Stack gap="xl">
-              <Center>
-                <Image
-                  src={`${CONFIG.IMAGE_BASE_URL}${serie.image}`}
-                  width={200}
-                  height={300}
-                  radius="md"
-                  fit="cover"
-                  alt={serie.name}
-                  fallbackSrc="https://placehold.co/200x300/1a1b1e/FFF?text=Sin+Imagen"
-                />
-              </Center>
+          <Box
+            pos="absolute"
+            inset={0}
+            style={{
+              background:
+                "linear-gradient(to top, var(--mantine-color-dark-8) 0%, rgba(0,0,0,0.4) 40%, transparent 100%)",
+              display: "flex",
+              alignItems: "flex-end",
+              padding: "var(--mantine-spacing-md)",
+            }}
+          >
+            <Title
+              order={1}
+              c="white"
+              lineClamp={2}
+              style={{ marginBottom: 0 }}
+            >
+              {serie.name}
+            </Title>
+          </Box>
+        </Box>
 
-              <Title order={2} ta="center">
-                {serie.name}
-              </Title>
+        <Container size="sm" py="xl">
+          <Stack gap="xl">
+            <Stack gap="xs">
+              <Text
+                c="dimmed"
+                size="lg"
+                fw={500}
+                style={{ fontStyle: "italic" }}
+              >
+                "{serie.tagline}"
+              </Text>
+              <Group>
+                <Badge color="red" variant="filled" size="lg">
+                  {serie.genre}
+                </Badge>
+                <Badge color="gray" size="lg">
+                  {serie.clasification}
+                </Badge>
+                <Badge color="gray" size="lg">
+                  {serie.total_chapters} Cap.
+                </Badge>
+              </Group>
+            </Stack>
 
-              <Stack gap="xs">
-                {Object.entries(serie).map(([key, value]) =>
-                  [
-                    "id",
-                    "name",
-                    "image",
-                    "description",
-                    "status",
-                    "total_chapters",
-                  ].includes(key) || typeof value === "object" ? null : (
-                    <Text key={key}>
-                      <Text component="span" fw={700}>
-                        {key.replace(/_/g, " ")}:
-                      </Text>{" "}
-                      {String(value)}
-                    </Text>
-                  )
-                )}
+            <Divider />
 
-                <Text>
-                  <Text component="span" fw={700}>
-                    Estado:
-                  </Text>{" "}
-                  {serie.status}
-                </Text>
-                <Text>
-                  <Text component="span" fw={700}>
-                    Capítulos:
-                  </Text>{" "}
-                  {serie.total_chapters}
-                </Text>
+            <Stack gap="md">
+              <Title order={3}>Sinopsis</Title>
+              <Text c="dimmed" style={{ whiteSpace: "pre-wrap" }}>
+                {serie.description}
+              </Text>
 
+              {serie.comments && (
                 <>
                   <Title order={3} mt="md">
-                    Sinopsis
+                    Mensaje del Autor
                   </Title>
                   <Text c="dimmed" style={{ whiteSpace: "pre-wrap" }}>
-                    Sinopsis
+                    {serie.comments.split("\r\n")[0]}{" "}
+                    {/* Solo la primera línea */}
                   </Text>
                 </>
-              </Stack>
+              )}
             </Stack>
-          )}
+
+            <Divider />
+
+            {/* C. DATOS TÉCNICOS/LEGALES (Clean Layout) */}
+            <Title order={3} mb="sm">
+              Ficha Técnica
+            </Title>
+            <Stack gap="xs">
+              <MetadataRow label="País" value={serie.country} />
+              <MetadataRow label="Idioma" value={serie.language} />
+              <MetadataRow label="Créditos" value={serie.credits} />
+              <MetadataRow label="Sentido de Lectura" value={serie.read} />
+              <MetadataRow label="Legal" value={serie.legal} />
+            </Stack>
+          </Stack>
         </Container>
-      </IonContent>
+      </ScrollArea>
     </IonModal>
   );
 };
+
+const MetadataRow = ({ label, value }: { label: string; value: string }) => (
+  <Group justify="space-between" wrap="nowrap">
+    <Text size="sm" fw={700}>
+      {label}:
+    </Text>
+    <Text size="sm" c="dimmed" ta="right" style={{ wordBreak: "break-word" }}>
+      {value}
+    </Text>
+  </Group>
+);

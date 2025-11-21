@@ -8,21 +8,12 @@ import {
   Stack,
   Flex,
 } from "@mantine/core";
-import { useAtomValue } from "jotai";
-import { FavoriteIdsSetAtom } from "../../../stores/favorities";
 import { SerieCard } from "../../../components/SerieCard";
 import { heart } from "ionicons/icons";
-import { useSeries } from "../Series/hook";
+import { useFavorities } from "./hook";
 
 export const HomeFavorities = () => {
-  const favoriteIds = useAtomValue(FavoriteIdsSetAtom);
-
-  const { series } = useSeries();
-  const allseries = series;
-
-  const favoriteSeries = allseries.filter((series) =>
-    favoriteIds.has(series.id)
-  );
+  const { favorities } = useFavorities();
 
   const handleSelectSeries = (id: string) => {
     console.log(`Abriendo modal de detalle para favorito: ${id}`);
@@ -36,7 +27,7 @@ export const HomeFavorities = () => {
             Mis Favoritos
           </Title>
 
-          {favoriteSeries.length === 0 ? (
+          {favorities.length === 0 ? (
             <Flex w="100%" h="100%" align="center" justify="center">
               <Center style={{ height: 300 }}>
                 <Stack align="center" gap="md">
@@ -49,7 +40,7 @@ export const HomeFavorities = () => {
             </Flex>
           ) : (
             <SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="md">
-              {favoriteSeries.map((serie) => (
+              {favorities.map((serie) => (
                 <SerieCard
                   key={serie.id}
                   serie={serie}

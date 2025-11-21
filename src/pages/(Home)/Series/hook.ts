@@ -4,62 +4,80 @@ import { Serie } from "../../../types/serie";
 
 const SERIES_PER_PAGE = 10;
 
+interface PaginationData {
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  totalPages: number;
+}
+
 interface UseSeriesDataResult {
   series: Serie[];
   isLoading: boolean;
   error: string | null;
-  loadMore: (event: { detail: { complete: () => void } }) => void;
+  loadMore: (event: { target: { complete: () => void } }) => void;
   hasMore: boolean;
 }
 
 export const useSeries = (): UseSeriesDataResult => {
-  const [allSeries, setAllSeries] = useState<Serie[]>([]);
   const [series, setSeries] = useState<Serie[]>([]);
+  const [pagination, setPagination] = useState<PaginationData>({
+    total: 0,
+    page: 0,
+    limit: SERIES_PER_PAGE,
+    hasMore: true,
+    totalPages: 0,
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaginating, setIsPaginating] = useState(false);
+  const hasMore = pagination.hasMore;
 
-  const hasMore = series.length < allSeries.length;
+  const fetchData = async (pageToLoad: number) => {
+    pageToLoad === 1 ? setIsLoading(true) : setIsPaginating(true);
+
+    try {
+      const response = await GetSeries(pageToLoad);
+      const data = response.items;
+      const newPagination = response.pagination;
+
+      const filtered = data.filter((s: Serie) => s.status === "Published");
+
+      setSeries((prev) =>
+        pageToLoad === 1 ? filtered : [...prev, ...filtered]
+      );
+
+      setPagination(newPagination);
+    } catch (err) {
+      console.error("Error fetching series:", err);
+      setError("Falló la conexión con el servidor. Revisa el endpoint POST.");
+    } finally {
+      setIsLoading(false);
+      setIsPaginating(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await GetSeries();
-        console.log(data);
-
-        const filtered = data.items.filter(
-          (s: Serie) => s.status === "Published"
-        );
-        setAllSeries(filtered);
-
-        setSeries(filtered.slice(0, SERIES_PER_PAGE));
-        setCurrentIndex(SERIES_PER_PAGE);
-      } catch (err) {
-        console.error("Error fetching series:", err);
-        setError("Falló la conexión con el servidor. Revisa el endpoint POST.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+    if (series.length === 0 && pagination.page === 0) {
+      fetchData(1);
+    }
   }, []);
 
-  const loadMore = (event: { detail: { complete: () => void } }) => {
-    if (!hasMore) {
-      event.detail.complete();
+  const loadMore = (event: { target: { complete: () => void } }) => {
+    console.log(event);
+    if (!hasMore || isPaginating) {
+      event.target.complete();
       return;
     }
 
-    const nextIndex = currentIndex + SERIES_PER_PAGE;
-    const newBatch = allSeries.slice(currentIndex, nextIndex);
+    const nextPage = pagination.page + 1;
 
-    setTimeout(() => {
-      setSeries((prev) => [...prev, ...newBatch]);
-      setCurrentIndex(nextIndex);
-      event.detail.complete();
-    }, 500);
+    fetchData(nextPage).finally(() => {
+      event.target.complete();
+    });
   };
 
   return {
